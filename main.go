@@ -264,19 +264,19 @@ func processFile(filePath string) error {
 func processVersion15File(filePath string, content []byte) error {
 	contentStr := string(content)
 
-	// 替换模式
-	replacements := map[string]string{
-		"qn.CommunityWithAccount": "qn.Enterprise",
-		"qn.Community":            "qn.Enterprise",
-		"qn.Pro":                  "qn.Enterprise",
+	// 替换模式（将无序的map改成有序的切片，避免先替换"qn.Community"导致"qn.CommunityWithAccount"被意外替换）
+	replacements := []struct{ old, new string }{
+		{"qn.CommunityWithAccount", "qn.Enterprise"},
+		{"qn.Community", "qn.Enterprise"},
+		{"qn.Pro", "qn.Enterprise"},
 	}
 
 	modified := false
-	for old, new := range replacements {
-		if strings.Contains(contentStr, old) {
-			contentStr = strings.ReplaceAll(contentStr, old, new)
+	for _, replacement := range replacements {
+		if strings.Contains(contentStr, replacement.old) {
+			contentStr = strings.ReplaceAll(contentStr, replacement.old, replacement.new)
 			modified = true
-			fmt.Printf("替换 %s 为 %s\n", old, new)
+			fmt.Printf("替换 %s 为 %s\n", replacement.old, replacement.new)
 		}
 	}
 
