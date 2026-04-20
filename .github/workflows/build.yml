@@ -5,6 +5,8 @@ on:
   push:
     branches:
       - main
+    tags:
+      - "v*"
     paths:
       - "*.go"
       - "**/*.go"
@@ -19,9 +21,32 @@ on:
       - "scripts/**"
       - ".github/workflows/build.yml"
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - goos: windows
+            goarch: amd64
+            binary_name: activate-windows-amd64.exe
+            artifact_name: gitlens-pro-windows-amd64
+          - goos: linux
+            goarch: amd64
+            binary_name: activate-linux-amd64
+            artifact_name: gitlens-pro-linux-amd64
+          - goos: darwin
+            goarch: amd64
+            binary_name: activate-darwin-amd64
+            artifact_name: gitlens-pro-darwin-amd64
+          - goos: darwin
+            goarch: arm64
+            binary_name: activate-darwin-arm64
+            artifact_name: gitlens-pro-darwin-arm64
 
     steps:
       - name: Checkout repository
@@ -33,23 +58,33 @@ jobs:
           go-version-file: go.mod
 
       - name: Prepare output directory
-        run: mkdir -p bin
+        run: mkdir -p dist
 
-      - name: Build Windows binary
-        run: GOOS=windows GOARCH=amd64 go build -o bin/activate.exe
+      - name: Build binary
+        run: GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} go build -o dist/${{ matrix.binary_name }}
 
-      - name: Build Linux binary
-        run: GOOS=linux GOARCH=amd64 go build -o bin/activate
-
-      - name: Build macOS Intel binary
-        run: GOOS=darwin GOARCH=amd64 go build -o bin/activate_mac_amd64
-
-      - name: Build macOS Apple Silicon binary
-        run: GOOS=darwin GOARCH=arm64 go build -o bin/activate_mac_arm64
-
-      - name: Upload build artifacts
+      - name: Upload platform artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gitlens-pro-bin
-          path: bin/
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.binary_name }}
           if-no-files-found: error
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: gitlens-pro-*
+          merge-multiple: true
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-assets/*
+          generate_release_notes: true
