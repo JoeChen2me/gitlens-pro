@@ -75,6 +75,45 @@ var predefinedPaths = []ExtensionPath{
 	},
 }
 
+// scanResult 记录某个预设路径下的 GitLens 扫描结果
+type scanResult struct {
+	Path       ExtensionPath
+	FullPath   string
+	GitLensDirs []string
+}
+
+// scanGitLensInPaths 扫描所有预设路径，返回包含 GitLens 安装的路径
+func scanGitLensInPaths(home string) []scanResult {
+	pattern := regexp.MustCompile(`^eamodio\.gitlens-\d+\.\d+\.\d+(?:-universal)?$`)
+	var results []scanResult
+
+	for _, ep := range predefinedPaths {
+		fullPath := filepath.Join(home, ep.Path)
+		entries, err := os.ReadDir(fullPath)
+		if err != nil {
+			continue
+		}
+
+		var dirs []string
+		for _, entry := range entries {
+			if entry.IsDir() && pattern.MatchString(entry.Name()) {
+				dirs = append(dirs, entry.Name())
+			}
+		}
+
+		if len(dirs) > 0 {
+			sort.Sort(sort.Reverse(sort.StringSlice(dirs)))
+			results = append(results, scanResult{
+				Path:        ep,
+				FullPath:    fullPath,
+				GitLensDirs: dirs,
+			})
+		}
+	}
+
+	return results
+}
+
 func getExtensionsDir() string {
 	// 优先使用命令行参数
 	if len(os.Args) > 2 && os.Args[1] == "--ext-dir" {
@@ -93,28 +132,39 @@ func getExtensionsDir() string {
 		home = "."
 	}
 
-	// 显示预设选项
-	fmt.Println("\n请选择 VSCode 扩展目录:")
-	for i, path := range predefinedPaths {
-		fullPath := filepath.Join(home, path.Path)
-		fmt.Printf("[%d] %s (%s)\n    路径: %s\n", i+1, path.Name, path.Description, fullPath)
-	}
-	fmt.Printf("[%d] 自定义路径\n", len(predefinedPaths)+1)
+	// 先扫描所有预设路径
+	results := scanGitLensInPaths(home)
 
-	// 获取用户选择
-	choice := promptForSelection(len(predefinedPaths)+1, "请选择扩展目录")
-
-	// 如果选择自定义路径
-	if choice == len(predefinedPaths)+1 {
+	if len(results) == 0 {
+		fmt.Println("\n未在任何预设路径中找到 GitLens 扩展!")
+		fmt.Println("已扫描以下路径:")
+		for _, ep := range predefinedPaths {
+			fmt.Printf("  - %s\n", filepath.Join(home, ep.Path))
+		}
 		fmt.Print("\n请输入自定义扩展目录路径: ")
 		reader := bufio.NewReader(os.Stdin)
 		customPath, _ := reader.ReadString('\n')
 		return strings.TrimSpace(customPath)
 	}
 
-	// 返回选择的预设路径
-	selectedPath := predefinedPaths[choice-1]
-	return filepath.Join(home, selectedPath.Path)
+	// 只展示有 GitLens 的路径
+	fmt.Println("\n发现 GitLens 扩展的路径:")
+	for i, r := range results {
+		fmt.Printf("[%d] %s (%s)\n    路径: %s\n    版本: %s\n",
+			i+1, r.Path.Name, r.Path.Description, r.FullPath, strings.Join(r.GitLensDirs, ", "))
+	}
+	fmt.Printf("[%d] 自定义路径\n", len(results)+1)
+
+	choice := promptForSelection(len(results)+1, "请选择扩展目录")
+
+	if choice == len(results)+1 {
+		fmt.Print("\n请输入自定义扩展目录路径: ")
+		reader := bufio.NewReader(os.Stdin)
+		customPath, _ := reader.ReadString('\n')
+		return strings.TrimSpace(customPath)
+	}
+
+	return results[choice-1].FullPath
 }
 
 func main() {
