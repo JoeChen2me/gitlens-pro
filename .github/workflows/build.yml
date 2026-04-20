@@ -1,0 +1,55 @@
+name: Build Binaries
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "*.go"
+      - "**/*.go"
+      - "go.mod"
+      - "scripts/**"
+      - ".github/workflows/build.yml"
+  pull_request:
+    paths:
+      - "*.go"
+      - "**/*.go"
+      - "go.mod"
+      - "scripts/**"
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Prepare output directory
+        run: mkdir -p bin
+
+      - name: Build Windows binary
+        run: GOOS=windows GOARCH=amd64 go build -o bin/activate.exe
+
+      - name: Build Linux binary
+        run: GOOS=linux GOARCH=amd64 go build -o bin/activate
+
+      - name: Build macOS Intel binary
+        run: GOOS=darwin GOARCH=amd64 go build -o bin/activate_mac_amd64
+
+      - name: Build macOS Apple Silicon binary
+        run: GOOS=darwin GOARCH=arm64 go build -o bin/activate_mac_arm64
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: gitlens-pro-bin
+          path: bin/
+          if-no-files-found: error

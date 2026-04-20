@@ -39,6 +39,21 @@ var predefinedPaths = []ExtensionPath{
 		Description: "VSCode 预览版",
 	},
 	{
+		Name:        "VSCode Server",
+		Path:        filepath.Join(".vscode-server", "extensions"),
+		Description: "VSCode Remote SSH 服务端",
+	},
+	{
+		Name:        "VSCode Server Insiders",
+		Path:        filepath.Join(".vscode-server-insiders", "extensions"),
+		Description: "VSCode Remote SSH 预览版服务端",
+	},
+	{
+		Name:        "Cursor Server",
+		Path:        filepath.Join(".cursor-server", "extensions"),
+		Description: "Cursor Remote SSH 服务端",
+	},
+	{
 		Name:        "Windsurf",
 		Path:        filepath.Join(".windsurf", "extensions"),
 		Description: "Windsurf 编辑器",
